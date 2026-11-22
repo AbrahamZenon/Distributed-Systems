@@ -25,12 +25,14 @@ public class CollaborationServer extends WebSocketServer {
     private final Map<WebSocket, String> connToClientId = new ConcurrentHashMap<>();
     private final Map<WebSocket, String> connToDocId = new ConcurrentHashMap<>();
     private Thread heartbeatThread;
+    private com.sun.net.httpserver.HttpServer httpServer;
     private volatile boolean running = false;
 
     private static final DateTimeFormatter LOG_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
     public CollaborationServer(String host, int port, String storageDir) {
         super(new InetSocketAddress(host, port));
+        setReuseAddr(true);
         StorageEngine storage = new StorageEngine(storageDir);
         this.docManager = new DocumentManager(storage);
         this.sessionManager = new SessionManager();
@@ -50,6 +52,7 @@ public class CollaborationServer extends WebSocketServer {
         this.running = true;
         log("SERVER_STARTED", "Listening on ws://" + getAddress().getHostString() + ":" + getPort());
         startHeartbeatSweep();
+        startHttpServer();
     }
 
     @Override
@@ -185,22 +188,25 @@ public class CollaborationServer extends WebSocketServer {
         op.setDocId(docId);
         op.setBaseVersion(baseVersion);
 
-        DocumentManager.ApplyOpResult result = docManager.applyClientOp(docId, clientId, baseVersion, op);
+        DocumentState doc = docManager.getOrLoadDocument(docId);
+        synchronized (doc) {
+            DocumentManager.ApplyOpResult result = docManager.applyClientOp(docId, clientId, baseVersion, op);
 
-        log("EVENT:OP_APPLIED", String.format("doc_id='%s' client_id='%s' base_v=%d->server_v=%d op=%s pos=%d len=%d",
-            docId, clientId, baseVersion, result.newVersion, result.transformedOp.getOpType(),
-            result.transformedOp.getPosition(), result.updatedContent.length()));
+            log("EVENT:OP_APPLIED", String.format("doc_id='%s' client_id='%s' base_v=%d->server_v=%d op=%s pos=%d len=%d",
+                docId, clientId, baseVersion, result.newVersion, result.transformedOp.getOpType(),
+                result.transformedOp.getPosition(), result.updatedContent.length()));
 
-        // Send OP_ACK to author
-        JSONObject ackPayload = new JSONObject();
-        ackPayload.put("op_id", op.getOpId());
-        ackPayload.put("server_version", result.newVersion);
-        Message ack = new Message(MessageType.OP_ACK, clientId, docId, result.newVersion, ackPayload);
-        safeSend(conn, ack.toJSONString());
+            // Send OP_ACK to author
+            JSONObject ackPayload = new JSONObject();
+            ackPayload.put("op_id", op.getOpId());
+            ackPayload.put("server_version", result.newVersion);
+            Message ack = new Message(MessageType.OP_ACK, clientId, docId, result.newVersion, ackPayload);
+            safeSend(conn, ack.toJSONString());
 
-        // Broadcast OP_BROADCAST to other editors
-        Message broadcast = new Message(MessageType.OP_BROADCAST, clientId, docId, result.newVersion, result.transformedOp.toJSONObject());
-        broadcastToOthers(docId, clientId, broadcast.toJSONString());
+            // Broadcast OP_BROADCAST to other editors
+            Message broadcast = new Message(MessageType.OP_BROADCAST, clientId, docId, result.newVersion, result.transformedOp.toJSONObject());
+            broadcastToOthers(docId, clientId, broadcast.toJSONString());
+        }
     }
 
     private void handleSyncReq(WebSocket conn, Message msg) {
@@ -327,13 +333,56 @@ public class CollaborationServer extends WebSocketServer {
         heartbeatThread.start();
     }
 
+    private void startHttpServer() {
+        int[] ports = {8080, 8766, 8888};
+        for (int p : ports) {
+            try {
+                httpServer = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress(p), 0);
+                httpServer.createContext("/", exchange -> {
+                    String path = exchange.getRequestURI().getPath();
+                    if ("/".equals(path) || path == null || path.isEmpty()) path = "/index.html";
+                    java.io.File file = new java.io.File("src/main/resources/web" + path);
+                    if (!file.exists()) {
+                        byte[] notFound = "404 Not Found".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                        exchange.sendResponseHeaders(404, notFound.length);
+                        exchange.getResponseBody().write(notFound);
+                        exchange.getResponseBody().close();
+                        return;
+                    }
+                    String contentType = "text/html";
+                    if (path.endsWith(".css")) contentType = "text/css";
+                    else if (path.endsWith(".js")) contentType = "application/javascript";
+                    else if (path.endsWith(".svg")) contentType = "image/svg+xml";
+
+                    byte[] bytes = java.nio.file.Files.readAllBytes(file.toPath());
+                    exchange.getResponseHeaders().set("Content-Type", contentType + "; charset=UTF-8");
+                    exchange.sendResponseHeaders(200, bytes.length);
+                    exchange.getResponseBody().write(bytes);
+                    exchange.getResponseBody().close();
+                });
+                httpServer.start();
+                log("WEB_UI", "Interactive Web UI available at: http://localhost:" + p + "/?user=Phuc");
+                break;
+            } catch (Exception ignored) {}
+        }
+    }
+
+    public DocumentManager getDocumentManager() {
+        return docManager;
+    }
+
     @Override
     public void stop() throws InterruptedException {
         this.running = false;
         if (heartbeatThread != null) {
             heartbeatThread.interrupt();
         }
-        super.stop();
+        if (httpServer != null) {
+            try {
+                httpServer.stop(0);
+            } catch (Exception ignored) {}
+        }
+        super.stop(1000);
         log("SERVER_STOPPED", "Collaboration server stopped cleanly.");
     }
 
