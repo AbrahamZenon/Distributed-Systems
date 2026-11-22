@@ -1,0 +1,17 @@
+services:
+  collab-server:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: ds04-collab-server
+    ports:
+      - "8765:8765"
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8765
+      - STORAGE_DIR=/app/data/documents
+      - SNAPSHOT_INTERVAL_OPS=50
+      - AUTH_TOKEN_SECRET=ds04_collaborative_secret_key_change_in_production
+    volumes:
+      - ../data/documents:/app/data/documents
+    restart: unless-stopped
