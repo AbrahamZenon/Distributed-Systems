@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Docs - DS04 Collaborative Editor</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%234285f4%22><path d=%22M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z%22/></svg>">
+</head>
+<body>
+  <!-- TOP APP BAR -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="docs-icon" title="Docs Home">
+        <svg viewBox="0 0 24 24" fill="#4285f4" width="36" height="36">
+          <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+        </svg>
+      </div>
+      <div class="doc-meta">
+        <div class="doc-title-row">
+          <input type="text" id="docTitleInput" value="DS04 Distributed Systems - Shared Document" class="doc-title-input" />
+          <span class="star-icon" title="Star document">&#9734;</span>
+          <span class="folder-icon" title="Move document">&#128193;</span>
+          <span class="cloud-status" id="cloudStatus" title="Document Status">
+            <span class="cloud-icon">&#9729;</span>
+            <span id="cloudStatusText">Saved to Server</span>
+          </span>
+          <span class="version-tag" id="versionBadge">v=0</span>
+          <span class="jupiter-tag" id="jupiterBadge">SYNCHRONIZED</span>
+        </div>
+        <div class="menu-bar">
+          <span class="menu-item">File</span>
+          <span class="menu-item">Edit</span>
+          <span class="menu-item">View</span>
+          <span class="menu-item">Insert</span>
+          <span class="menu-item">Format</span>
+          <span class="menu-item">Tools</span>
+          <span class="menu-item">Extensions</span>
+          <span class="menu-item" id="btnHelp">Help</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <!-- Presence Avatars -->
+      <div class="active-users-list" id="activeUsersContainer" title="Active Collaborators">
+        <!-- Avatars injected here -->
+      </div>
+
+      <!-- Quick Actions -->
+      <button class="btn-share" id="btnShare">
+        <span class="lock-icon">&#128274;</span> Share
+      </button>
+
+      <div class="current-user-avatar" id="currentUserBadge" title="Your Account">
+        P
+      </div>
+    </div>
+  </header>
+
+  <!-- FORMATTING TOOLBAR -->
+  <div class="toolbar">
+    <button class="tool-btn" id="btnUndo" title="Undo (Ctrl+Z)">&#8630;</button>
+    <button class="tool-btn" id="btnRedo" title="Redo (Ctrl+Y)">&#8631;</button>
+    <button class="tool-btn" title="Print">&#128438;</button>
+    <div class="tool-sep"></div>
+
+    <select class="tool-select" id="zoomSelect">
+      <option>100%</option>
+      <option>75%</option>
+      <option>90%</option>
+      <option>125%</option>
+      <option>150%</option>
+    </select>
+    <div class="tool-sep"></div>
+
+    <select class="tool-select" id="styleSelect">
+      <option>Normal text</option>
+      <option>Title</option>
+      <option>Subtitle</option>
+      <option>Heading 1</option>
+      <option>Heading 2</option>
+    </select>
+    <div class="tool-sep"></div>
+
+    <select class="tool-select font-select" id="fontSelect">
+      <option>Arial</option>
+      <option>Google Sans</option>
+      <option>Times New Roman</option>
+      <option>Courier New</option>
+      <option>Roboto</option>
+    </select>
+    <div class="tool-sep"></div>
+
+    <select class="tool-select size-select" id="fontSizeSelect">
+      <option>11</option>
+      <option>12</option>
+      <option>14</option>
+      <option>18</option>
+      <option>24</option>
+    </select>
+    <div class="tool-sep"></div>
+
+    <button class="tool-btn font-bold" id="btnBold" title="Bold (Ctrl+B)">B</button>
+    <button class="tool-btn font-italic" id="btnItalic" title="Italic (Ctrl+I)">I</button>
+    <button class="tool-btn font-underline" id="btnUnderline" title="Underline (Ctrl+U)">U</button>
+    <button class="tool-btn text-color-btn" title="Text color">A</button>
+    <div class="tool-sep"></div>
+
+    <button class="tool-btn" title="Align Left">&#8676;</button>
+    <button class="tool-btn" title="Align Center">&#8596;</button>
+    <button class="tool-btn" title="Align Right">&#8677;</button>
+    <div class="tool-sep"></div>
+
+    <!-- Network / Offline Toggle Controls -->
+    <div class="offline-control-panel">
+      <button class="btn-offline-toggle" id="btnOfflineToggle" title="Simulate network partition / reconnect">
+        <span class="indicator-dot online"></span>
+        <span id="btnOfflineText">Go Offline</span>
+      </button>
+      <span class="offline-counter" id="offlineQueueCounter" style="display: none;">0 queued</span>
+    </div>
+
+    <!-- Drawer Toggles -->
+    <button class="tool-btn log-toggle-btn" id="btnToggleLog" title="Toggle OT Operation History Drawer">
+      &#128221; OT Log
+    </button>
+  </div>
+
+  <!-- RULER -->
+  <div class="ruler-container">
+    <div class="ruler">
+      <div class="ruler-ticks"></div>
+    </div>
+  </div>
+
+  <!-- MAIN DOCUMENT CANVAS (A4 PAGE SIMULATION) -->
+  <main class="page-viewport">
+    <div class="page-canvas" id="pageCanvas">
+      <div class="page-margin-indicator"></div>
+      
+      <!-- Editor Area -->
+      <div class="editor-container" id="editorContainer">
+        <textarea id="collabEditor" class="collab-editor" placeholder="Type here to collaborate in real-time..." spellcheck="false"></textarea>
+        <!-- Overlay container for remote cursors and annotations -->
+        <div class="cursor-overlay" id="cursorOverlay"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- OT LOG DRAWER (COLLAPSIBLE) -->
+  <aside class="ot-log-drawer" id="otLogDrawer">
+    <div class="drawer-header">
+      <h4>Operational Transformation (OT) Live Event Log</h4>
+      <div class="drawer-actions">
+        <span class="stat-badge" id="statOpsCount">0 operations</span>
+        <button class="btn-clear-log" id="btnClearLog">Clear</button>
+        <button class="btn-close-drawer" id="btnCloseDrawer">&times;</button>
+      </div>
+    </div>
+    <div class="drawer-content" id="otLogList">
+      <div class="log-empty-msg">No operations recorded yet. Start typing to observe real-time OT events.</div>
+    </div>
+  </aside>
+
+  <!-- STATUS FOOTER -->
+  <footer class="app-footer">
+    <div class="footer-left">
+      <span>Connected to: <strong id="footerServerUri">ws://127.0.0.1:8765</strong></span>
+      <span class="footer-sep">|</span>
+      <span>Doc ID: <strong id="footerDocId">doc-1</strong></span>
+      <span class="footer-sep">|</span>
+      <span>User: <strong id="footerUser">Phuc (Editor)</strong></span>
+    </div>
+    <div class="footer-right">
+      <span id="footerStats">Chars: 0 | Words: 0 | Latency: ~5ms</span>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

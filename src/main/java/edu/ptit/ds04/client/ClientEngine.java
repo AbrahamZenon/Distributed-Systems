@@ -4,7 +4,6 @@ import edu.ptit.ds04.common.Message;
 import edu.ptit.ds04.common.MessageType;
 import edu.ptit.ds04.core.OpType;
 import edu.ptit.ds04.core.Operation;
-import edu.ptit.ds04.core.OperationalTransformation;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 import org.json.JSONArray;
@@ -17,6 +16,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 
+/**
+ * WebSocket Collaborative Client Engine powered by Jupiter State Machine and Offline Sync.
+ * Refactored & Enhanced by: Nguyen Duy Phuc (B23DCVT341)
+ */
 public class ClientEngine extends WebSocketClient {
     private final String docId;
     private final String clientId;
@@ -24,16 +27,14 @@ public class ClientEngine extends WebSocketClient {
     private final String token;
     private final String color;
 
-    private int version = 0;
-    private String content = "";
+    private final JupiterClient jupiter;
+    private final OfflineManager offlineManager;
     private final List<JSONObject> activeUsers = new ArrayList<>();
     private final Object lock = new Object();
 
-    private Operation pendingOp = null;
-    private final List<Operation> bufferOps = new ArrayList<>();
-
     private BiConsumer<String, Integer> onChangeCallback;
     private CountDownLatch joinLatch = new CountDownLatch(1);
+    private CountDownLatch syncLatch = null;
 
     public ClientEngine(URI serverUri, String docId, String clientId, String userName, String token, String color) {
         super(serverUri);
@@ -42,6 +43,8 @@ public class ClientEngine extends WebSocketClient {
         this.userName = userName != null ? userName : clientId;
         this.token = token != null ? token : "token-" + clientId;
         this.color = color != null ? color : "#3b82f6";
+        this.jupiter = new JupiterClient(clientId, docId);
+        this.offlineManager = new OfflineManager();
     }
 
     public ClientEngine(String serverUri, String docId, String clientId, String userName) throws Exception {
@@ -50,6 +53,25 @@ public class ClientEngine extends WebSocketClient {
 
     public void setOnChangeCallback(BiConsumer<String, Integer> callback) {
         this.onChangeCallback = callback;
+    }
+
+    public JupiterClient getJupiter() {
+        return jupiter;
+    }
+
+    public OfflineManager getOfflineManager() {
+        return offlineManager;
+    }
+
+    public JupiterState getJupiterState() {
+        return jupiter.getState();
+    }
+
+    public void setSimulatedOffline(boolean simulatedOffline) {
+        offlineManager.setOffline(simulatedOffline);
+        if (!simulatedOffline && isOpen()) {
+            requestSync(jupiter.getVersion());
+        }
     }
 
     public boolean connectAndJoin(long timeoutSec) throws InterruptedException {
@@ -65,7 +87,26 @@ public class ClientEngine extends WebSocketClient {
         Message joinMsg = new Message(MessageType.JOIN, clientId, docId, 0, payload);
         send(joinMsg.toJSONString());
 
-        return joinLatch.await(timeoutSec, TimeUnit.SECONDS);
+        boolean ok = joinLatch.await(timeoutSec, TimeUnit.SECONDS);
+        if (ok) {
+            offlineManager.setOffline(false);
+        }
+        return ok;
+    }
+
+    public void requestSync(int fromVersion) {
+        syncLatch = new CountDownLatch(1);
+        JSONObject payload = new JSONObject();
+        payload.put("from_version", fromVersion);
+        Message msg = new Message(MessageType.SYNC_REQ, clientId, docId, fromVersion, payload);
+        send(msg.toJSONString());
+    }
+
+    public boolean awaitSync(long timeoutSec) throws InterruptedException {
+        if (syncLatch != null) {
+            return syncLatch.await(timeoutSec, TimeUnit.SECONDS);
+        }
+        return true;
     }
 
     @Override
@@ -87,6 +128,9 @@ public class ClientEngine extends WebSocketClient {
                 case MessageType.OP_BROADCAST:
                     handleRemoteOp(msg);
                     break;
+                case MessageType.SYNC_RESP:
+                    handleSyncResp(msg);
+                    break;
                 case MessageType.PRESENCE:
                     handlePresence(msg);
                     break;
@@ -104,6 +148,7 @@ public class ClientEngine extends WebSocketClient {
     @Override
     public void onClose(int code, String reason, boolean remote) {
         System.out.println("[CLIENT:" + userName + "] Connection closed (code=" + code + ")");
+        offlineManager.setOffline(true);
     }
 
     @Override
@@ -113,8 +158,10 @@ public class ClientEngine extends WebSocketClient {
 
     private void handleJoinAck(Message msg) {
         synchronized (lock) {
-            this.version = msg.getPayload().optInt("version", 0);
-            this.content = msg.getPayload().optString("content", "");
+            int ver = msg.getPayload().optInt("version", 0);
+            String txt = msg.getPayload().optString("content", "");
+            jupiter.setSnapshot(txt, ver);
+
             JSONArray users = msg.getPayload().optJSONArray("active_users");
             this.activeUsers.clear();
             if (users != null) {
@@ -123,23 +170,26 @@ public class ClientEngine extends WebSocketClient {
                 }
             }
             joinLatch.countDown();
-            System.out.println("[CLIENT:" + userName + "] Joined doc '" + docId + "' at v=" + version + ". Text: '" + content + "'");
+            System.out.println("[CLIENT:" + userName + "] Joined doc '" + docId + "' at v=" + ver + ". Text: '" + txt + "'");
+
+            if (onChangeCallback != null) {
+                onChangeCallback.accept(jupiter.getContent(), jupiter.getVersion());
+            }
         }
     }
 
     private void handleOpAck(Message msg) {
         synchronized (lock) {
             int serverVer = msg.getPayload().getInt("server_version");
-            this.version = serverVer;
-            this.pendingOp = null;
+            Operation nextOp = jupiter.handleServerAck(serverVer);
 
-            if (!bufferOps.isEmpty()) {
-                Operation nextOp = bufferOps.remove(0);
-                nextOp.setBaseVersion(this.version);
-                this.pendingOp = nextOp;
-
-                Message submitMsg = new Message(MessageType.OP_SUBMIT, clientId, docId, this.version, nextOp.toJSONObject());
+            if (nextOp != null) {
+                Message submitMsg = new Message(MessageType.OP_SUBMIT, clientId, docId, jupiter.getVersion(), nextOp.toJSONObject());
                 send(submitMsg.toJSONString());
+            }
+
+            if (onChangeCallback != null) {
+                onChangeCallback.accept(jupiter.getContent(), jupiter.getVersion());
             }
         }
     }
@@ -147,31 +197,47 @@ public class ClientEngine extends WebSocketClient {
     private void handleRemoteOp(Message msg) {
         synchronized (lock) {
             Operation remoteOp = Operation.fromJSONObject(msg.getPayload());
-            this.version = msg.getVersion();
-
-            Operation currRemote = remoteOp;
-            if (pendingOp != null) {
-                OperationalTransformation.TransformResult tr =
-                    OperationalTransformation.transform(currRemote, pendingOp, true);
-                currRemote = tr.op1Prime;
-                pendingOp = tr.op2Prime;
-            }
-
-            List<Operation> transformedBuffer = new ArrayList<>();
-            for (Operation bOp : bufferOps) {
-                OperationalTransformation.TransformResult tr =
-                    OperationalTransformation.transform(currRemote, bOp, true);
-                currRemote = tr.op1Prime;
-                transformedBuffer.add(tr.op2Prime);
-            }
-            bufferOps.clear();
-            bufferOps.addAll(transformedBuffer);
-
-            this.content = OperationalTransformation.applyOperation(this.content, currRemote);
-            System.out.printf("[CLIENT:%s] Remote op applied (v=%d): '%s'%n", userName, version, content);
+            jupiter.handleRemoteOperation(remoteOp, msg.getVersion());
+            System.out.printf("[CLIENT:%s] Remote op applied (v=%d): '%s'%n",
+                userName, jupiter.getVersion(), jupiter.getContent());
 
             if (onChangeCallback != null) {
-                onChangeCallback.accept(content, version);
+                onChangeCallback.accept(jupiter.getContent(), jupiter.getVersion());
+            }
+        }
+    }
+
+    private void handleSyncResp(Message msg) {
+        synchronized (lock) {
+            JSONObject payload = msg.getPayload();
+            int currentVer = payload.optInt("current_version", msg.getVersion());
+            JSONArray opsArr = payload.optJSONArray("operations");
+            List<Operation> missedOps = new ArrayList<>();
+            if (opsArr != null) {
+                for (int i = 0; i < opsArr.length(); i++) {
+                    missedOps.add(Operation.fromJSONObject(opsArr.getJSONObject(i)));
+                }
+            }
+
+            List<Operation> toFlush = offlineManager.reconcileCatchUp(missedOps, currentVer, jupiter);
+            System.out.printf("[CLIENT:%s] Catch-up sync completed! Reconciled %d missed ops. Flushing %d offline ops...%n",
+                userName, missedOps.size(), toFlush.size());
+
+            // Flush offline ops sequentially through Jupiter
+            for (Operation offOp : toFlush) {
+                Operation toSend = jupiter.handleLocalOperation(offOp);
+                if (toSend != null) {
+                    Message submitMsg = new Message(MessageType.OP_SUBMIT, clientId, docId, jupiter.getVersion(), toSend.toJSONObject());
+                    send(submitMsg.toJSONString());
+                }
+            }
+
+            if (syncLatch != null) {
+                syncLatch.countDown();
+            }
+
+            if (onChangeCallback != null) {
+                onChangeCallback.accept(jupiter.getContent(), jupiter.getVersion());
             }
         }
     }
@@ -190,65 +256,78 @@ public class ClientEngine extends WebSocketClient {
 
     public void submitInsert(int position, String text) {
         synchronized (lock) {
-            Operation op = new Operation(OpType.INSERT, position, text);
-            op.setClientId(clientId);
-            op.setDocId(docId);
-            op.setBaseVersion(this.version);
+            if (offlineManager.isOffline() || !isOpen()) {
+                Operation op = new Operation(OpType.INSERT, position, text);
+                op.setClientId(clientId);
+                op.setDocId(docId);
+                op.setBaseVersion(jupiter.getVersion());
 
-            this.content = OperationalTransformation.applyOperation(this.content, op);
-            if (onChangeCallback != null) {
-                onChangeCallback.accept(content, version);
-            }
+                // Optimistically apply locally
+                jupiter.handleLocalOperation(op);
+                offlineManager.enqueueOfflineOp(op);
 
-            if (pendingOp == null) {
-                pendingOp = op;
-                Message msg = new Message(MessageType.OP_SUBMIT, clientId, docId, this.version, op.toJSONObject());
-                send(msg.toJSONString());
+                System.out.printf("[CLIENT:%s][OFFLINE] Insert queued (buffer=%d): '%s'%n",
+                    userName, offlineManager.getOfflineCount(), jupiter.getContent());
+                if (onChangeCallback != null) {
+                    onChangeCallback.accept(jupiter.getContent(), jupiter.getVersion());
+                }
             } else {
-                bufferOps.add(op);
+                Operation toSend = jupiter.applyLocalInsert(position, text);
+                if (toSend != null) {
+                    Message msg = new Message(MessageType.OP_SUBMIT, clientId, docId, jupiter.getVersion(), toSend.toJSONObject());
+                    send(msg.toJSONString());
+                }
+                if (onChangeCallback != null) {
+                    onChangeCallback.accept(jupiter.getContent(), jupiter.getVersion());
+                }
             }
         }
     }
 
     public void submitDelete(int position, int length) {
         synchronized (lock) {
-            Operation op = new Operation(OpType.DELETE, position, length);
-            op.setClientId(clientId);
-            op.setDocId(docId);
-            op.setBaseVersion(this.version);
+            if (offlineManager.isOffline() || !isOpen()) {
+                Operation op = new Operation(OpType.DELETE, position, length);
+                op.setClientId(clientId);
+                op.setDocId(docId);
+                op.setBaseVersion(jupiter.getVersion());
 
-            this.content = OperationalTransformation.applyOperation(this.content, op);
-            if (onChangeCallback != null) {
-                onChangeCallback.accept(content, version);
-            }
+                jupiter.handleLocalOperation(op);
+                offlineManager.enqueueOfflineOp(op);
 
-            if (pendingOp == null) {
-                pendingOp = op;
-                Message msg = new Message(MessageType.OP_SUBMIT, clientId, docId, this.version, op.toJSONObject());
-                send(msg.toJSONString());
+                System.out.printf("[CLIENT:%s][OFFLINE] Delete queued (buffer=%d): '%s'%n",
+                    userName, offlineManager.getOfflineCount(), jupiter.getContent());
+                if (onChangeCallback != null) {
+                    onChangeCallback.accept(jupiter.getContent(), jupiter.getVersion());
+                }
             } else {
-                bufferOps.add(op);
+                Operation toSend = jupiter.applyLocalDelete(position, length);
+                if (toSend != null) {
+                    Message msg = new Message(MessageType.OP_SUBMIT, clientId, docId, jupiter.getVersion(), toSend.toJSONObject());
+                    send(msg.toJSONString());
+                }
+                if (onChangeCallback != null) {
+                    onChangeCallback.accept(jupiter.getContent(), jupiter.getVersion());
+                }
             }
         }
     }
 
     public void sendCursor(int position) {
-        JSONObject payload = new JSONObject();
-        payload.put("cursor_position", position);
-        Message msg = new Message(MessageType.CURSOR, clientId, docId, 0, payload);
-        send(msg.toJSONString());
+        if (isOpen()) {
+            JSONObject payload = new JSONObject();
+            payload.put("cursor_position", position);
+            Message msg = new Message(MessageType.CURSOR, clientId, docId, 0, payload);
+            send(msg.toJSONString());
+        }
     }
 
     public String getContent() {
-        synchronized (lock) {
-            return content;
-        }
+        return jupiter.getContent();
     }
 
     public int getVersion() {
-        synchronized (lock) {
-            return version;
-        }
+        return jupiter.getVersion();
     }
 
     public List<JSONObject> getActiveUsers() {

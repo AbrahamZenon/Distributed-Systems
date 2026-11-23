@@ -137,7 +137,7 @@ public class DemoAll {
             System.out.println(">>> SCENARIO 7: Restart the server and restore the document from WAL/Snapshot");
             System.out.println("[-] Stopping Server (simulating crash/shutdown)...");
             server.stop();
-            Thread.sleep(1000);
+            Thread.sleep(1500);
             System.out.println("[+] Server stopped.");
 
             System.out.println("[-] Booting a fresh Server instance loading from persistent WAL/Snapshot storage...");
@@ -164,6 +164,7 @@ public class DemoAll {
             System.out.println("\n===========================================================================");
             System.out.println("    ALL 7 MANDATORY DEMONSTRATION SCENARIOS COMPLETED SUCCESSFULLY!");
             System.out.println("===========================================================================");
+            System.exit(0);
         } finally {
             try {
                 Files.walk(tempDir.toPath())

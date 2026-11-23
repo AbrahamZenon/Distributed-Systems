@@ -20,6 +20,12 @@ Bao gồm các file kiểm thử:
    - `testSnapshotCombinedWithWal`: Tái dựng dữ liệu kết hợp từ Snapshot checkpoint và các log WAL kế tiếp.
 3. **`ServerIntegrationTest.java`**: Kiểm thử tích hợp WebSocket Server:
    - `testServerMultiClientAndOTConcurrency`: Kết nối đa client, xác thực token, đồng bộ thời gian thực và xử lý xung đột đồng thời.
+4. **`JupiterClientTest.java`** *(Tác giả: Nguyễn Duy Phúc - B23DCVT341)*: Kiểm thử máy trạng thái Jupiter Client:
+   - `testJupiterStateTransitions`: Chuỗi chuyển đổi trạng thái `SYNCHRONIZED` -> `AWAITING_ACK` -> `AWAITING_WITH_BUFFER` và quay lại.
+   - `testRemoteOpTransformationWhileAwaitingAck`: Biến đổi remote op khi đang chờ server ACK.
+   - `testBufferTransformationWithMultipleRemoteOps`: Biến đổi nhiều remote ops qua buffer tích lũy.
+5. **`OfflineManagerTest.java`** *(Tác giả: Nguyễn Duy Phúc - B23DCVT341)*: Kiểm thử soạn thảo ngoại tuyến và tái đồng bộ:
+   - `testOfflineQueueAndCatchUpSync`: Đệm thao tác khi mất kết nối mạng, nhận `SYNC_RESP`, reconcile biến đổi chéo và xả hàng đợi đã re-base lên server.
 
 ---
 

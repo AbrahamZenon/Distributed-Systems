@@ -28,11 +28,11 @@ Theo yêu cầu đặc tả đồ án môn Hệ phân tán, toàn bộ hệ th�
 | | **3. Persistence & Crash Recovery Engine** | - Xây dựng cơ chế Write-Ahead Log (`StorageEngine.java`) ghi nhật ký append-only mọi thao tác xuống đĩa (`wal.log`).<br>- Checkpointing snapshot định kỳ lưu toàn vẹn trạng thái văn bản (`snapshot.json`).<br>- Phục hồi dữ liệu tự động khi server crash/restart bằng cách nạp snapshot và replay WAL. | `edu.ptit.ds04.storage.StorageEngine`<br>`data/documents/` | **Đã hoàn thành (100%)** |
 | | **4. Protocol & Distributed Security** | - Định nghĩa chuẩn cấu trúc thông điệp JSON Schema (`Message.java`, `MessageType.java`).<br>- Tầng bảo mật: Xác thực HMAC Token, phân quyền người dùng (Editor/Viewer), chống giả mạo Client ID, xác thực và làm sạch dữ liệu đầu vào (Input Sanitization).<br>- Cấu hình tham số môi trường (`Config.java`). | `edu.ptit.ds04.common.Message`<br>`edu.ptit.ds04.common.MessageType`<br>`edu.ptit.ds04.common.SecurityUtil`<br>`edu.ptit.ds04.common.Config` | **Đã hoàn thành (100%)** |
 | | **5. Core Tests & Maven Build System** | - Cấu hình `pom.xml`, Maven Wrapper (`mvnw`), và container hóa Docker (`deploy/Dockerfile`).<br>- Viết bộ Unit test tự động JUnit 5 cho OT Engine, Crash Recovery và WebSocket Server. | `pom.xml`<br>`deploy/Dockerfile`<br>`deploy/docker-compose.yml`<br>`src/test/java/edu/ptit/ds04/` | **Đã hoàn thành (100%)** |
-| **Nguyễn Duy Phúc**<br>*(B23DCVT341)*<br>**[Thành viên 2]** | **1. Client Engine & State Machine** | - Xây dựng máy trạng thái Jupiter Client (3 trạng thái: `SYNCHRONIZED`, `AWAITING_ACK`, `AWAITING_WITH_BUFFER`).<br>- Hiện thực Optimistic Local Update (hiển thị ký tự tức thì trên client trước khi nhận server ACK).<br>- Đệm thao tác và biến đổi buffer khi nhận remote operation. | `edu.ptit.ds04.client.ClientEngine`<br>`edu.ptit.ds04.client.JupiterClient` | Đang triển khai |
-| | **2. Offline Editing & Catch-up Sync** | - Quản lý hàng đợi thao tác ngoại tuyến khi mất kết nối mạng.<br>- Cơ chế Reconnect Handshake & Catch-up Sync: tự động gửi `SYNC_REQ` để lấy các thao tác bị bỏ lỡ từ server. | `edu.ptit.ds04.client.OfflineManager` | Đang triển khai |
-| | **3. Giao diện Người dùng Tương tác (CLI & Web UI)** | - Xây dựng Interactive Terminal Client cho phép gõ lệnh trực tiếp, xem live text, hiển thị con trỏ và danh sách người dùng.<br>- Xây dựng Web UI giao diện trực quan mô phỏng Google Docs với kết nối WebSocket trực tiếp. | `edu.ptit.ds04.client.InteractiveCLI`<br>`src/main/resources/web/` | Đang triển khai |
-| | **4. Kịch bản Demo Tự động & Fault Injection** | - Viết chương trình Java thực hiện trọn vẹn 7 kịch bản biểu diễn (Demonstration Scenarios) theo mục 8.4 đặc tả môn học.<br>- Công cụ tiêm lỗi mạng (Fault Injection): giả lập độ trễ mạng, ngắt kết nối client/server đột ngột. | `edu.ptit.ds04.demo.DemoAll`<br>`scripts/fault_injection.bat` | Đang triển khai |
-| | **5. Đánh giá Hiệu năng & Báo cáo** | - Đo đạc độ trễ (latency), thông lượng (throughput), thời gian hội tụ (convergence speed).<br>- Viết tài liệu báo cáo kỹ thuật (Report 20-30 trang) và Slide thuyết trình. | `scripts/benchmark.bat`<br>`docs/report.pdf`<br>`docs/slides.pdf` | Đang triển khai |
+| **Nguyễn Duy Phúc**<br>*(B23DCVT341)*<br>**[Thành viên 2]** | **1. Client Engine & State Machine** | - Xây dựng máy trạng thái Jupiter Client (3 trạng thái: `SYNCHRONIZED`, `AWAITING_ACK`, `AWAITING_WITH_BUFFER`).<br>- Hiện thực Optimistic Local Update (hiển thị ký tự tức thì trên client trước khi nhận server ACK).<br>- Đệm thao tác và biến đổi buffer khi nhận remote operation. | `edu.ptit.ds04.client.JupiterClient`<br>`edu.ptit.ds04.client.JupiterState`<br>`edu.ptit.ds04.client.ClientEngine` | **Đã hoàn thành (100%)** |
+| | **2. Offline Editing & Catch-up Sync** | - Quản lý hàng đợi thao tác ngoại tuyến khi mất kết nối mạng (`OfflineManager`).<br>- Cơ chế Reconnect Handshake & Catch-up Sync: tự động gửi `SYNC_REQ` để lấy các thao tác bị bỏ lỡ từ server và reconcile. | `edu.ptit.ds04.client.OfflineManager` | **Đã hoàn thành (100%)** |
+| | **3. Giao diện Người dùng Tương tác (CLI & Web UI)** | - Xây dựng Interactive Terminal Client cho phép gõ lệnh trực tiếp, xem live text, hiển thị con trỏ, danh sách người dùng, toggle offline.<br>- Xây dựng Web UI giao diện trực quan mô phỏng Google Docs với kết nối WebSocket trực tiếp và máy chủ HTTP mini nhúng. | `edu.ptit.ds04.client.InteractiveCLI`<br>`src/main/resources/web/` | **Đã hoàn thành (100%)** |
+| | **4. Kịch bản Demo Tự động & Fault Injection** | - Viết chương trình Java thực hiện trọn vẹn 7 kịch bản biểu diễn (Demonstration Scenarios) theo mục 8.4 đặc tả môn học.<br>- Công cụ tiêm lỗi mạng (Fault Injection): giả lập độ trễ mạng, ngắt kết nối client/server đột ngột (`FaultInjectionRunner`). | `edu.ptit.ds04.demo.DemoAll`<br>`edu.ptit.ds04.demo.FaultInjectionRunner`<br>`scripts/fault_injection.sh` | **Đã hoàn thành (100%)** |
+| | **5. Đánh giá Hiệu năng & Báo cáo** | - Đo đạc độ trễ (latency), thông lượng (throughput), thời gian hội tụ (convergence speed) qua Benchmark Runner.<br>- Viết tài liệu báo cáo kỹ thuật (Report 20-30 trang) và Slide thuyết trình. | `edu.ptit.ds04.benchmark.BenchmarkRunner`<br>`scripts/benchmark.sh`<br>`docs/report.pdf`<br>`docs/slides.pdf`<br>`docs/REPORT.md`<br>`docs/SLIDES.md` | **Đã hoàn thành (100%)** |
 
 ---
 
@@ -170,11 +170,16 @@ Hệ thống được thiết kế để vượt qua đầy đủ 7 kịch bản
 
 ## 8. Hướng Dẫn Vận Hành Hệ Thống (Execution Instructions)
 
-### 8.1. Khởi động Collaboration Server
+### 8.1. Khởi động Collaboration Server & Embedded Web UI
 ```bash
+# Trên Windows
 .\mvnw.cmd compile exec:java -Dexec.mainClass="edu.ptit.ds04.server.CollaborationServer"
+
+# Hoặc trên Linux/macOS
+bash scripts/run_server.sh
 ```
-Server sẽ lắng nghe tại `ws://0.0.0.0:8765`.
+- WebSocket Server lắng nghe tại: `ws://0.0.0.0:8765`.
+- Embedded Web UI Google Docs tự động khả dụng tại: `http://localhost:8080/?user=Phuc`.
 
 ### 8.2. Khởi động Client
 Mở các cửa sổ terminal độc lập:
@@ -185,19 +190,51 @@ Mở các cửa sổ terminal độc lập:
 # Client Bob
 .\mvnw.cmd compile exec:java -Dexec.mainClass="edu.ptit.ds04.client.InteractiveCLI" -Dexec.args="--doc doc-1 --user Bob"
 
-# Client Charlie
-.\mvnw.cmd compile exec:java -Dexec.mainClass="edu.ptit.ds04.client.InteractiveCLI" -Dexec.args="--doc doc-1 --user Charlie"
+# Client Phuc (hoặc Charlie)
+.\mvnw.cmd compile exec:java -Dexec.mainClass="edu.ptit.ds04.client.InteractiveCLI" -Dexec.args="--doc doc-1 --user Phuc"
 ```
+*Lưu ý:* Bên trong CLI, có thể gõ `status` để xem trạng thái Jupiter State Machine (`SYNCHRONIZED`, `AWAITING_ACK`, `AWAITING_WITH_BUFFER`), gõ `offline` để giả lập rớt mạng gõ ngoại tuyến và `online` để kích hoạt Catch-up sync.
 
 ### 8.3. Chạy Toàn Bộ Kịch Bản Demo Tự Động (7 Scenarios Runner)
 ```bash
+# Trên Windows:
 .\mvnw.cmd compile exec:java -Dexec.mainClass="edu.ptit.ds04.demo.DemoAll"
+
+# Trên Linux/macOS:
+bash scripts/demo_all.sh
 ```
 
-### 8.4. Chạy Toàn Bộ Bộ Kiểm Thử Tự Động (JUnit 5 Tests)
+### 8.4. Chạy Kiểm Thử Tiêm Lỗi Mạng & Khôi Phục (Fault Injection Runner)
 ```bash
-.\mvnw.cmd test
+# Trên Windows:
+scripts\fault_injection.bat
+
+# Trên Linux/macOS:
+bash scripts/fault_injection.sh
 ```
+
+### 8.5. Chạy Đánh Giá Hiệu Năng (Benchmark Suite)
+```bash
+# Trên Windows:
+scripts\benchmark.bat
+
+# Trên Linux/macOS:
+bash scripts/benchmark.sh --clients 5 --ops 20
+```
+Báo cáo đo kiểm sẽ tự động xuất ra: [docs/benchmark_results.md](docs/benchmark_results.md).
+
+### 8.6. Chạy Toàn Bộ Bộ Kiểm Thử Tự Động (JUnit 5 Tests)
+```bash
+# Trên Windows:
+.\mvnw.cmd test
+
+# Trên Linux/macOS:
+bash scripts/run_tests.sh
+```
+
+### 8.7. Tài Liệu Báo Cáo Kỹ Thuật & Slide Thuyết Trình
+- Báo cáo kỹ thuật chi tiết: [docs/REPORT.md](docs/REPORT.md) & [docs/report.pdf](docs/report.pdf).
+- Slide thuyết trình đồ án: [docs/SLIDES.md](docs/SLIDES.md) & [docs/slides.pdf](docs/slides.pdf).
 
 ---
 
