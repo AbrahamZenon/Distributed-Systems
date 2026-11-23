@@ -27,14 +27,20 @@ public class OperationalTransformation {
             return curr;
         }
 
-        if (OpType.NOOP.equals(op.getOpType()) || op.getLength() == 0) {
+        if (OpType.NOOP.equals(op.getOpType())) {
             return text;
         }
 
         if (OpType.INSERT.equals(op.getOpType())) {
+            if (op.getText() == null || op.getText().isEmpty()) {
+                return text;
+            }
             int pos = Math.max(0, Math.min(text.length(), op.getPosition()));
             return text.substring(0, pos) + op.getText() + text.substring(pos);
         } else if (OpType.DELETE.equals(op.getOpType())) {
+            if (op.getLength() <= 0) {
+                return text;
+            }
             int pos = Math.max(0, Math.min(text.length(), op.getPosition()));
             int end = Math.max(pos, Math.min(text.length(), pos + op.getLength()));
             return text.substring(0, pos) + text.substring(end);
@@ -73,14 +79,20 @@ public class OperationalTransformation {
         }
 
         // Handle NOOP
-        if (OpType.NOOP.equals(op1.getOpType()) || op1.getLength() == 0) {
+        boolean isOp1Noop = OpType.NOOP.equals(op1.getOpType()) ||
+            (OpType.INSERT.equals(op1.getOpType()) && (op1.getText() == null || op1.getText().isEmpty())) ||
+            (OpType.DELETE.equals(op1.getOpType()) && op1.getLength() <= 0);
+        if (isOp1Noop) {
             Operation noop = op1.clone();
             noop.setOpType(OpType.NOOP);
             noop.setLength(0);
             return new TransformResult(noop, op2.clone());
         }
 
-        if (OpType.NOOP.equals(op2.getOpType()) || op2.getLength() == 0) {
+        boolean isOp2Noop = OpType.NOOP.equals(op2.getOpType()) ||
+            (OpType.INSERT.equals(op2.getOpType()) && (op2.getText() == null || op2.getText().isEmpty())) ||
+            (OpType.DELETE.equals(op2.getOpType()) && op2.getLength() <= 0);
+        if (isOp2Noop) {
             Operation noop = op2.clone();
             noop.setOpType(OpType.NOOP);
             noop.setLength(0);

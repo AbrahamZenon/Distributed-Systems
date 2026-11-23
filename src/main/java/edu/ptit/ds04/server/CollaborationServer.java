@@ -356,6 +356,9 @@ public class CollaborationServer extends WebSocketServer {
 
                     byte[] bytes = java.nio.file.Files.readAllBytes(file.toPath());
                     exchange.getResponseHeaders().set("Content-Type", contentType + "; charset=UTF-8");
+                    exchange.getResponseHeaders().set("Cache-Control", "no-cache, no-store, must-revalidate");
+                    exchange.getResponseHeaders().set("Pragma", "no-cache");
+                    exchange.getResponseHeaders().set("Expires", "0");
                     exchange.sendResponseHeaders(200, bytes.length);
                     exchange.getResponseBody().write(bytes);
                     exchange.getResponseBody().close();

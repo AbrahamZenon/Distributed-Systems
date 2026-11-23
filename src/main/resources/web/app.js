@@ -520,7 +520,7 @@
         op_type: "INSERT",
         type: "INSERT",
         position: start,
-        length: 0,
+        length: insText.length,
         text: insText,
         client_id: CLIENT_ID,
         doc_id: DOC_ID,

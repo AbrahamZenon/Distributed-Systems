@@ -91,11 +91,16 @@ public class Operation {
         }
         Integer serverVer = json.has("server_version") && !json.isNull("server_version") ? json.getInt("server_version") : null;
         String resolvedOpType = json.optString("op_type", json.optString("type", OpType.NOOP));
+        String text = json.optString("text", "");
+        int length = json.optInt("length", 0);
+        if (OpType.INSERT.equals(resolvedOpType) && length == 0 && text != null && !text.isEmpty()) {
+            length = text.length();
+        }
         return new Operation(
             resolvedOpType,
             json.optInt("position", 0),
-            json.optString("text", ""),
-            json.optInt("length", 0),
+            text,
+            length,
             json.optString("client_id", ""),
             json.optString("doc_id", ""),
             json.optInt("base_version", 0),
