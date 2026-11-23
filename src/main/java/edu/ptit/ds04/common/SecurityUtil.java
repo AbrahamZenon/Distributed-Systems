@@ -77,7 +77,7 @@ public class SecurityUtil {
 
     public static boolean sanitizeOperationPayload(JSONObject payload) {
         if (payload == null) return false;
-        String opType = payload.optString("op_type", null);
+        String opType = payload.optString("op_type", payload.optString("type", null));
         if (opType == null || (!opType.equals("INSERT") && !opType.equals("DELETE") && !opType.equals("NOOP"))) {
             return false;
         }

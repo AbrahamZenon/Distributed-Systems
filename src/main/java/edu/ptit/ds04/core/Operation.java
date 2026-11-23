@@ -89,8 +89,9 @@ public class Operation {
             }
         }
         Integer serverVer = json.has("server_version") && !json.isNull("server_version") ? json.getInt("server_version") : null;
+        String resolvedOpType = json.optString("op_type", json.optString("type", OpType.NOOP));
         return new Operation(
-            json.optString("op_type", OpType.NOOP),
+            resolvedOpType,
             json.optInt("position", 0),
             json.optString("text", ""),
             json.optInt("length", 0),

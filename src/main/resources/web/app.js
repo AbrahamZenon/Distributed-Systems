@@ -454,9 +454,12 @@
 
     if (delLen > 0) {
       const delOp = {
+        op_id: "op-" + Math.random().toString(36).substr(2, 9),
+        op_type: "DELETE",
         type: "DELETE",
         position: start,
         length: delLen,
+        text: "",
         client_id: CLIENT_ID,
         doc_id: DOC_ID,
         base_version: docVersion
@@ -467,8 +470,11 @@
 
     if (insText.length > 0) {
       const insOp = {
+        op_id: "op-" + Math.random().toString(36).substr(2, 9),
+        op_type: "INSERT",
         type: "INSERT",
         position: start,
+        length: 0,
         text: insText,
         client_id: CLIENT_ID,
         doc_id: DOC_ID,
