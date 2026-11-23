@@ -225,6 +225,37 @@
   // ==========================================
   // WEBSOCKET COLLABORATION ENGINE
   // ==========================================
+  function normalizeOp(op) {
+    if (!op) return null;
+    const t = op.op_type || op.type || "NOOP";
+    op.type = t;
+    op.op_type = t;
+    return op;
+  }
+
+  let heartbeatTimer = null;
+  function startHeartbeat() {
+    stopHeartbeat();
+    heartbeatTimer = setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: "PING",
+          client_id: CLIENT_ID,
+          doc_id: DOC_ID,
+          version: docVersion,
+          payload: {}
+        }));
+      }
+    }, 5000);
+  }
+
+  function stopHeartbeat() {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
+  }
+
   function connect() {
     if (isOfflineSimulated) return;
 
@@ -232,6 +263,7 @@
 
     ws.onopen = () => {
       logEvent("Connected", `Connected to ${WS_URI}`, "sync");
+      startHeartbeat();
       // Send JOIN message
       const joinMsg = {
         type: "JOIN",
@@ -257,8 +289,17 @@
     };
 
     ws.onclose = () => {
+      stopHeartbeat();
       logEvent("Disconnected", "WebSocket connection closed.", "sync");
       updateStateUI();
+      if (!isOfflineSimulated) {
+        setTimeout(() => {
+          if (!isOfflineSimulated && (!ws || ws.readyState === WebSocket.CLOSED)) {
+            logEvent("Reconnecting", "Attempting automatic reconnection...", "sync");
+            connect();
+          }
+        }, 2000);
+      }
     };
 
     ws.onerror = (err) => {
@@ -300,9 +341,11 @@
       }
 
       case "OP_BROADCAST": {
-        const remoteOp = msg.payload;
+        const remoteOp = normalizeOp(msg.payload);
+        if (!remoteOp) break;
         docVersion = msg.version;
-        logEvent("OP_BROADCAST", `Remote ${remoteOp.type} from ${msg.client_id} at v=${docVersion}`, remoteOp.type.toLowerCase());
+        const opTypeStr = remoteOp.type || "INSERT";
+        logEvent("OP_BROADCAST", `Remote ${opTypeStr} from ${msg.client_id} at v=${docVersion}`, opTypeStr.toLowerCase());
 
         let currRemote = remoteOp;
         if (pendingOp) {
@@ -329,9 +372,11 @@
 
         // Shift cursor if needed
         if (currRemote.type === "INSERT" && currRemote.position <= selStart) {
-          editor.setSelectionRange(selStart + currRemote.text.length, selEnd + currRemote.text.length);
+          editor.setSelectionRange(selStart + (currRemote.text ? currRemote.text.length : 0), selEnd + (currRemote.text ? currRemote.text.length : 0));
         } else if (currRemote.type === "DELETE" && currRemote.position < selStart) {
-          editor.setSelectionRange(Math.max(0, selStart - currRemote.length), Math.max(0, selEnd - currRemote.length));
+          editor.setSelectionRange(Math.max(0, selStart - (currRemote.length || 0)), Math.max(0, selEnd - (currRemote.length || 0)));
+        } else {
+          editor.setSelectionRange(selStart, selEnd);
         }
 
         updateStateUI();
@@ -339,7 +384,8 @@
       }
 
       case "SYNC_RESP": {
-        const missedOps = msg.payload.operations || [];
+        const rawOps = msg.payload.operations || [];
+        const missedOps = rawOps.map(normalizeOp).filter(Boolean);
         const currentVer = msg.payload.current_version;
         logEvent("SYNC_RESP", `Catch-up sync received ${missedOps.length} missed operations`, "sync");
 
@@ -532,6 +578,7 @@
   btnOfflineToggle.addEventListener("click", () => {
     isOfflineSimulated = !isOfflineSimulated;
     if (isOfflineSimulated) {
+      stopHeartbeat();
       if (ws) ws.close();
       logEvent("Offline Mode", "Disconnected network. Edits will queue locally.", "sync");
     } else {

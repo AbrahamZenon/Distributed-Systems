@@ -59,6 +59,7 @@ public class Operation {
         JSONObject json = new JSONObject();
         json.put("op_id", opId);
         json.put("op_type", opType);
+        json.put("type", opType);
         json.put("position", position);
         json.put("text", text);
         json.put("length", length);
