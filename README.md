@@ -32,7 +32,7 @@ Theo yêu cầu đặc tả đồ án môn Hệ phân tán, toàn bộ hệ th�
 | | **2. Offline Editing & Catch-up Sync** | - Quản lý hàng đợi thao tác ngoại tuyến khi mất kết nối mạng (`OfflineManager`).<br>- Cơ chế Reconnect Handshake & Catch-up Sync: tự động gửi `SYNC_REQ` để lấy các thao tác bị bỏ lỡ từ server và reconcile. | `edu.ptit.ds04.client.OfflineManager` | **Đã hoàn thành (100%)** |
 | | **3. Giao diện Người dùng Tương tác (CLI & Web UI)** | - Xây dựng Interactive Terminal Client cho phép gõ lệnh trực tiếp, xem live text, hiển thị con trỏ, danh sách người dùng, toggle offline.<br>- Xây dựng Web UI giao diện trực quan mô phỏng Google Docs với kết nối WebSocket trực tiếp và máy chủ HTTP mini nhúng. | `edu.ptit.ds04.client.InteractiveCLI`<br>`src/main/resources/web/` | **Đã hoàn thành (100%)** |
 | | **4. Kịch bản Demo Tự động & Fault Injection** | - Viết chương trình Java thực hiện trọn vẹn 7 kịch bản biểu diễn (Demonstration Scenarios) theo mục 8.4 đặc tả môn học.<br>- Công cụ tiêm lỗi mạng (Fault Injection): giả lập độ trễ mạng, ngắt kết nối client/server đột ngột (`FaultInjectionRunner`). | `edu.ptit.ds04.demo.DemoAll`<br>`edu.ptit.ds04.demo.FaultInjectionRunner`<br>`scripts/fault_injection.sh` | **Đã hoàn thành (100%)** |
-| | **5. Đánh giá Hiệu năng & Báo cáo** | - Đo đạc độ trễ (latency), thông lượng (throughput), thời gian hội tụ (convergence speed) qua Benchmark Runner.<br>- Viết tài liệu báo cáo kỹ thuật (Report 20-30 trang) và Slide thuyết trình. | `edu.ptit.ds04.benchmark.BenchmarkRunner`<br>`scripts/benchmark.sh`<br>`docs/report.pdf`<br>`docs/slides.pdf`<br>`docs/REPORT.md`<br>`docs/SLIDES.md` | **Đã hoàn thành (100%)** |
+| | **5. Đánh giá Hiệu năng & Báo cáo** | - Đo đạc độ trễ (latency), thông lượng (throughput), thời gian hội tụ (convergence speed) qua Benchmark Runner.<br>- Viết tài liệu báo cáo kỹ thuật và Slide thuyết trình. | `edu.ptit.ds04.benchmark.BenchmarkRunner`<br>`scripts/benchmark.sh` | **Đã hoàn thành (100%)** |
 
 ---
 
@@ -221,7 +221,7 @@ scripts\benchmark.bat
 # Trên Linux/macOS:
 bash scripts/benchmark.sh --clients 5 --ops 20
 ```
-Báo cáo đo kiểm sẽ tự động xuất ra: [docs/benchmark_results.md](docs/benchmark_results.md).
+Báo cáo đo kiểm sẽ tự động xuất ra: `docs/benchmark_results.md`.
 
 ### 8.6. Chạy Toàn Bộ Bộ Kiểm Thử Tự Động (JUnit 5 Tests)
 ```bash
@@ -231,10 +231,6 @@ Báo cáo đo kiểm sẽ tự động xuất ra: [docs/benchmark_results.md](do
 # Trên Linux/macOS:
 bash scripts/run_tests.sh
 ```
-
-### 8.7. Tài Liệu Báo Cáo Kỹ Thuật & Slide Thuyết Trình
-- Báo cáo kỹ thuật chi tiết: [docs/REPORT.md](docs/REPORT.md) & [docs/report.pdf](docs/report.pdf).
-- Slide thuyết trình đồ án: [docs/SLIDES.md](docs/SLIDES.md) & [docs/slides.pdf](docs/slides.pdf).
 
 ---
 
