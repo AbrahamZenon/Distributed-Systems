@@ -158,6 +158,9 @@ public class BenchmarkRunner {
 
             // Write markdown report to docs/benchmark_results.md
             File mdReport = new File("docs/benchmark_results.md");
+            if (mdReport.getParentFile() != null) {
+                mdReport.getParentFile().mkdirs();
+            }
             try (FileWriter fw = new FileWriter(mdReport)) {
                 fw.write("# DS04 Collaboration Engine - Performance Benchmark Report\n\n");
                 fw.write("**Author:** Nguyen Duy Phuc (B23DCVT341)\n\n");
